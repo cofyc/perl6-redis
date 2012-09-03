@@ -1,0 +1,8 @@
+{
+    "name" : "Redis",
+    "version" : "*",
+    "description" : "Perl6 binding for Redis",
+    "author" : "Yecheng Fu",
+    "depends" : [],
+    "source-url" : "git://github.com/Cofyc/perl6-redis.git",
+}
