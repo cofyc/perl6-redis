@@ -5,23 +5,16 @@ use Redis;
 use Test;
 use Test::SpawnRedisServer;
 
-plan 1;
+plan 2;
 
 {
     my $r = Redis.new('192.168.0.1');
-    my $failed = 0;
-    try {
-        $r.connect;
-        CATCH {
-            default { $failed = 1 }
-        }
-    }
-    ok $failed, 'trying to connect wrong server throws exception';
+    dies_ok { $r.connect }
 }
 
 {
     my $r = Redis.new();
-    $r.connect;
+    ok $r.connect;
 }
 
 # vim: ft=perl6

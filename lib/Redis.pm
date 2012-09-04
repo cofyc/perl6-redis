@@ -21,7 +21,7 @@ my &integer_reply_cb = { $_.Bool };
 my &string_to_float_cb = { $_.Real };
 my %command_callbacks = ();
 %command_callbacks{"PING"} = { $_ eq "PONG" };
-for "AUTH QUIT SET MSET PSETEX SETEX MIGRATE RENAME RENAMENX RESTORE HMSET SELECT".split(" ") -> $c {
+for "AUTH QUIT SET MSET PSETEX SETEX MIGRATE RENAME RENAMENX RESTORE HMSET SELECT LSET LTRIM".split(" ") -> $c {
     %command_callbacks{$c} = &status_code_reply_cb;
 }
 for "EXISTS SETNX EXPIRE EXPIREAT MOVE PERSIST PEXPIRE PEXPIREAT HSET HEXISTS HSETNX".split(" ") -> $c {
@@ -461,12 +461,13 @@ method brpoplpush(Str $source, Str $destination, Int $timeout) returns Any {
     return self!exec_command("BRPOPLPUSH", $source, $destination, $timeout);
 }
 
+# Returns the element at index in the list, or nil when index is out of range.
 method lindex(Str $key, Int $index) returns Any {
     return self!exec_command("LINDEX", $key, $index);
 }
 
-method linsert(Str $key, Str $where where { $where eq any(["BEFORE", "AFTER"]) }, $pivot, $value) returns Any {
-    # TODO
+method linsert(Str $key, Str $where where { $where eq any("BEFORE", "AFTER") }, $pivot, $value) returns Int {
+    return self!exec_command("LINSERT", $key, $where, $pivot, $value);
 }
 
 method llen(Str $key) returns Int {
@@ -481,8 +482,8 @@ method lpush(Str $key, *@values) returns Int {
     return self!exec_command("LPUSH", $key, |@values);
 }
 
-method lpushx(Str $key, *@values) returns Int {
-    return self!exec_command("LPUSHX", $key, |@values);
+method lpushx(Str $key, $value) returns Int {
+    return self!exec_command("LPUSHX", $key, $value);
 }
 
 method lrange(Str $key, Int $start, Int $stop) returns Array {
@@ -505,16 +506,16 @@ method rpop(Str $key) returns Any {
     return self!exec_command("RPOP", $key);
 }
 
-method rpoplpush(Str $source, Str $destination) {
+method rpoplpush(Str $source, Str $destination) returns Str {
     return self!exec_command("RPOPLPUSH", $source, $destination);
 }
 
-method rpush(Str $key, *@values) {
-    return self!exec_command("RPUSH", |@values);
+method rpush(Str $key, *@values) returns Int {
+    return self!exec_command("RPUSH", $key, |@values);
 }
 
 method rpushx(Str $key, $value) {
-    return self!exec_command("RPUSHX", $value);
+    return self!exec_command("RPUSHX", $key, $value);
 }
 
 ###### ! Commands/Lists ######
