@@ -1,4 +1,5 @@
 Commands
-========
-    * quit
-    * ping
+    - sort
+
+* complete method signatures
+* support debug & timeout options
