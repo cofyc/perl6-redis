@@ -1,6 +1,6 @@
 {
     "name" : "Redis",
-    "version" : "*",
+    "version" : "0.1.0",
     "description" : "Perl6 binding for Redis",
     "author" : "Yecheng Fu",
     "depends" : [],

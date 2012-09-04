@@ -21,10 +21,10 @@ my &integer_reply_cb = { $_.Bool };
 my &string_to_float_cb = { $_.Real };
 my %command_callbacks = ();
 %command_callbacks{"PING"} = { $_ eq "PONG" };
-for "AUTH QUIT SET MSET PSETEX SETEX MIGRATE RENAME RENAMENX RESTORE HMSET SELECT LSET LTRIM".split(" ") -> $c {
+for "AUTH QUIT SET MSET PSETEX SETEX MIGRATE RENAME RENAMENX RESTORE HMSET SELECT LSET LTRIM FLUSHALL".split(" ") -> $c {
     %command_callbacks{$c} = &status_code_reply_cb;
 }
-for "EXISTS SETNX EXPIRE EXPIREAT MOVE PERSIST PEXPIRE PEXPIREAT HSET HEXISTS HSETNX".split(" ") -> $c {
+for "EXISTS SETNX EXPIRE EXPIREAT MOVE PERSIST PEXPIRE PEXPIREAT HSET HEXISTS HSETNX SISMEMBER SMOVE".split(" ") -> $c {
     %command_callbacks{$c} = &integer_reply_cb;
 }
 for "INCRBYFLOAT HINCRBYFLOAT".split(" ") -> $c {
@@ -48,11 +48,10 @@ has Str $.host = '127.0.0.1';
 has Int $.port = 6379;
 has Str $.sock; # if sock is defined, use sock
 has Bool $.debug = False;
-has Real $.timeout = 0.0; # 0 means unlimited
 has $.conn is rw;
 has %!command_callbacks = %command_callbacks;
 
-method new(Str $server?, Bool :$debug?, Real :$timeout?) {
+method new(Str $server?, Bool :$debug?) {
     my %config = {}
     if $server.defined {
         if $server ~~ m/^([\d+]+ %\.) [':' (\d+)]?$/ {
@@ -66,9 +65,6 @@ method new(Str $server?, Bool :$debug?, Real :$timeout?) {
     }
     if $debug.defined {
         %config<debug> = $debug;
-    }
-    if $timeout.defined {
-        %config<timeout> = $timeout;
     }
     return self.bless(*, |%config);
 }
@@ -177,7 +173,15 @@ method select(Int $index) returns Bool {
     return self!exec_command("SELECT", $index);
 }
 
-####### Commands/Connection #######
+####### ! Commands/Connection #######
+
+####### Commands/Server #######
+
+method flushall() returns Bool {
+    return self!exec_command("FLUSHALL");
+}
+
+####### ! Commands/Server #######
 
 ###### Commands/Keys #######
 
@@ -519,5 +523,65 @@ method rpushx(Str $key, $value) {
 }
 
 ###### ! Commands/Lists ######
+
+###### Commands/Sets #######
+
+method sadd(Str $key, *@members) returns Int {
+    return self!exec_command("SADD", $key, |@members);
+}
+
+method scard(Str $key) returns Int {
+    return self!exec_command("SCARD", $key);
+}
+
+method sdiff(*@keys) returns Array {
+    return self!exec_command("SDIFF", |@keys);
+}
+
+method sdiffstore(Str $destination, *@keys) returns Int {
+    return self!exec_command("SDIFFSTORE", $destination, |@keys);
+}
+
+method sinter(*@keys) returns Array {
+    return self!exec_command("SINTER", |@keys);
+}
+
+method sinterstore(Str $destination, *@keys) returns Int {
+    return self!exec_command("SINTERSTORE", $destination, |@keys);
+}
+
+method sismember(Str $key, $member) {
+    return self!exec_command("SISMEMBER", $key, $member);
+}
+
+method smembers(Str $key) returns Array {
+    return self!exec_command("SMEMBERS", $key);
+}
+
+method smove(Str $source, Str $destination, $member) returns Bool {
+    return self!exec_command("SMOVE", $source, $destination, $member);
+}
+
+method spop(Str $key) returns Any {
+    return self!exec_command("SPOP", $key);
+}
+
+method srandmember(Str $key) returns Any {
+    return self!exec_command("SRANDMEMBER", $key);
+}
+
+method srem(Str $key, *@members) returns Int {
+    return self!exec_command("SREM", |@members);
+}
+
+method sunion(*@keys) returns Array {
+    return self!exec_command("SUNION", |@keys);
+}
+
+method sunionstore(Str $destination, *@keys) returns Int {
+    return self!exec_command("SUNIONSTORE", $destination, |@keys);
+}
+
+###### !Commands/Sets #######
 
 # vim: ft=perl6

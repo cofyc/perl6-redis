@@ -8,7 +8,7 @@ use Test::SpawnRedisServer;
 plan 2;
 
 {
-    my $r = Redis.new('192.168.0.1');
+    my $r = Redis.new('127.0.0.1:0');
     dies_ok { $r.connect }
 }
 

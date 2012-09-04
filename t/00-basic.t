@@ -8,22 +8,19 @@ my @new_tasks =
         'host' => '127.0.0.1',
         'port' => 6379,
         'debug' => False,
-        'timeout' => 0.0,
     }
     , \('192.168.0.1') => {
         'host' => '192.168.0.1',
         'port' => 6379,
     }
-    , \('192.168.0.1:6379', debug => True, timeout => 3) => {
+    , \('192.168.0.1:6379', debug => True) => {
         'host' => '192.168.0.1',
         'port' => 6379,
         'debug' => True,
-        'timeout' => 3,
     }
-    , \('/path/to/redis.sock', debug => True, timeout => 3) => {
+    , \('/path/to/redis.sock', debug => True) => {
         'sock' => '/path/to/redis.sock',
         'debug' => True,
-        'timeout' => 3,
     }
     ;
         
