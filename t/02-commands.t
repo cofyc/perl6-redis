@@ -140,7 +140,7 @@ is_deeply $r.rename("key", "newkey"), True;
 
 # renamenx
 {
-    my $failed = 1;
+    my $failed = 0;
     try {
         $r.renamenx("does_not_exists", "newkey");
         CATCH {
@@ -192,8 +192,19 @@ is_deeply $r.hvals("hash"), ["value2", "21.1"];
 
 
 ###### Commands/Connection #######
-
+{
+    my $failed = 0;
+    try {
+        $r.auth("WRONG PASSWORD");
+        CATCH {
+            default { $failed = 1 }
+        }
+    }
+    ok $failed;
+}
+is_deeply $r.echo("Hello World!"), "Hello World!";
 is_deeply $r.ping, True;
+is_deeply $r.select(2), True;
 is_deeply $r.quit, True;
 
 ###### ! Commands/Connection #######

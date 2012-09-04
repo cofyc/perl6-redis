@@ -21,7 +21,7 @@ my &integer_reply_cb = { $_.Bool };
 my &string_to_float_cb = { $_.Real };
 my %command_callbacks = ();
 %command_callbacks{"PING"} = { $_ eq "PONG" };
-for "QUIT SET MSET PSETEX SETEX MIGRATE RENAME RENAMENX RESTORE HMSET".split(" ") -> $c {
+for "AUTH QUIT SET MSET PSETEX SETEX MIGRATE RENAME RENAMENX RESTORE HMSET SELECT".split(" ") -> $c {
     %command_callbacks{$c} = &status_code_reply_cb;
 }
 for "EXISTS SETNX EXPIRE EXPIREAT MOVE PERSIST PEXPIRE PEXPIREAT HSET HEXISTS HSETNX".split(" ") -> $c {
@@ -153,6 +153,16 @@ method !parse_response($response, $command) {
     return $response;
 }
 
+####### Commands/Connection #######
+
+method auth(Str $password) returns Bool {
+    return self!exec_command("AUTH", $password);
+}
+
+method echo($message) returns Str {
+    return self!exec_command("ECHO", $message);
+}
+
 # Ping the server.
 method ping returns Bool {
     return self!exec_command("PING");
@@ -162,6 +172,12 @@ method ping returns Bool {
 method quit returns Bool {
     return self!exec_command("QUIT");
 }
+
+method select(Int $index) returns Bool {
+    return self!exec_command("SELECT", $index);
+}
+
+####### Commands/Connection #######
 
 ###### Commands/Keys #######
 
@@ -238,7 +254,7 @@ method restore(Str $key, Int $milliseconds, Str $serialized-value) returns Bool 
 }
 
 method sort(Str $key, Str :$by?,
-        Int :$offset?, Int :$count?, 
+        Int :$offset?, Int :$count?,
         :@get?,
         Bool :$desc = False,
         Bool :$alpha = False,
@@ -430,5 +446,77 @@ method hvals(Str $key) returns Array {
 }
 
 ###### ! Commands/Hashes ######
+
+###### Commands/Lists ######
+
+method blpop(Int $timeout, *@keys) returns Any {
+    return self!exec_command("BLPOP", |@keys, $timeout);
+}
+
+method brpop(Int $timeout, *@keys) returns Any {
+    return self!exec_command("BRPOP", |@keys, $timeout);
+}
+
+method brpoplpush(Str $source, Str $destination, Int $timeout) returns Any {
+    return self!exec_command("BRPOPLPUSH", $source, $destination, $timeout);
+}
+
+method lindex(Str $key, Int $index) returns Any {
+    return self!exec_command("LINDEX", $key, $index);
+}
+
+method linsert(Str $key, Str $where where { $where eq any(["BEFORE", "AFTER"]) }, $pivot, $value) returns Any {
+    # TODO
+}
+
+method llen(Str $key) returns Int {
+    return self!exec_command("LLEN", $key);
+}
+
+method lpop(Str $key) returns Any {
+    return self!exec_command("LPOP", $key);
+}
+
+method lpush(Str $key, *@values) returns Int {
+    return self!exec_command("LPUSH", $key, |@values);
+}
+
+method lpushx(Str $key, *@values) returns Int {
+    return self!exec_command("LPUSHX", $key, |@values);
+}
+
+method lrange(Str $key, Int $start, Int $stop) returns Array {
+    return self!exec_command("LRANGE", $key, $start, $stop);
+}
+
+method lrem(Str $key, Int $count, $value) returns Int {
+    return self!exec_command("LREM", $key, $count, $value);
+}
+
+method lset(Str $key, Int $index, $value) {
+    return self!exec_command("LSET", $key, $index, $value);
+}
+
+method ltrim(Str $key, Int $start, Int $stop) {
+    return self!exec_command("LTRIM", $key, $start, $stop);
+}
+
+method rpop(Str $key) returns Any {
+    return self!exec_command("RPOP", $key);
+}
+
+method rpoplpush(Str $source, Str $destination) {
+    return self!exec_command("RPOPLPUSH", $source, $destination);
+}
+
+method rpush(Str $key, *@values) {
+    return self!exec_command("RPUSH", |@values);
+}
+
+method rpushx(Str $key, $value) {
+    return self!exec_command("RPUSHX", $value);
+}
+
+###### ! Commands/Lists ######
 
 # vim: ft=perl6
