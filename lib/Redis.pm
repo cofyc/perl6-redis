@@ -750,4 +750,28 @@ method zunionstore(Str $destination, *@keys, :WEIGHTS(@weights)?, :AGGREGATE(@ag
 
 ###### ! Commands/SortedSets #######
 
+###### Commands/Pub&Sub #######
+
+method psubscribe(*@patterns) {
+    return self!exec_command("PSUBSCRIBE", |@patterns);
+}
+
+method publish(Str $channel, $message) {
+    return self!exec_command("PUBLISH", $channel, $message);
+}
+
+method punsubscribe(*@patterns) {
+    return self!exec_command("PUNSUBSCRIBE", |@patterns);
+}
+
+method subscribe(*@channels) {
+    return self!exec_command("SUBSCRIBE", |@channels);
+}
+
+method unsubscribe(*@channels) {
+    return self!exec_command("UNSUBSCRIBE", |@channels);
+}
+
+###### ! Commands/Pub&Sub #######
+
 # vim: ft=perl6
