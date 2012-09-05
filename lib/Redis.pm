@@ -34,7 +34,7 @@ my &buf_to_float_cb = { $_.decode("ASCII").Real };
 
 my %command_callbacks = Hash.new;
 %command_callbacks{"PING"} = { $_ eq "PONG" };
-for "AUTH QUIT SET MSET PSETEX SETEX MIGRATE RENAME RENAMENX RESTORE HMSET SELECT LSET LTRIM FLUSHALL".split(" ") -> $c {
+for "AUTH,QUIT,SET,MSET,PSETEX,SETEX,MIGRATE,RENAME,RENAMENX,RESTORE,HMSET,SELECT,LSET,LTRIM,FLUSHALL,DISCARD,MULTI,WATCH,UNWATCH,SCRIPT FLUSH,SCRIPT KILL".split(",") -> $c {
     %command_callbacks{$c} = &status_code_reply_cb;
 }
 for "EXISTS SETNX EXPIRE EXPIREAT MOVE PERSIST PEXPIRE PEXPIREAT HSET HEXISTS HSETNX SISMEMBER SMOVE".split(" ") -> $c {
@@ -112,12 +112,10 @@ method !pack_command(*@args) returns Buf {
     return $cmd;
 }
 
-method !exec_command(*@args) returns Any {
-    if @args.elems <= 0 {
-        die "Invalid command.";
-    }
+method !exec_command(Str $command, *@args) returns Any {
+    @args.unshift($command.split(" "));
     $.conn.write(self!pack_command(|@args));
-    return self!parse_response(self!read_response(), @args[0]);
+    return self!parse_response(self!read_response(), $command);
 }
 
 # Returns Str/Int/Buf/Array
@@ -773,5 +771,58 @@ method unsubscribe(*@channels) {
 }
 
 ###### ! Commands/Pub&Sub #######
+
+###### Commands/Transactions #######
+
+method discard() returns Bool {
+    return self!exec_command("DISCARD");
+}
+
+# TODO format response according each command
+method exec() returns List {
+    return self!exec_command("EXEC");
+}
+
+method multi() returns Bool {
+    return self!exec_command("MULTI");
+}
+
+method unwatch() returns Bool {
+    return self!exec_command("UNWATCH");
+}
+
+method watch(*@keys) returns Bool {
+    return self!exec_command("WATCH");
+}
+
+###### ! Commands/Transactions #######
+
+###### Commands/Scripting #######
+
+method eval(Str $script, Int $numkeys, *@keys_and_args) returns Any {
+    return self!exec_command("EVAL", $script, $numkeys, |@keys_and_args);
+}
+
+method evalsha(Str $sha1, Int $numkeys, *@keys_and_args) returns Any {
+    return self!exec_command("EVALSHA", $sha1, $numkeys, |@keys_and_args);
+}
+
+method script_exists(*@scripts) returns List {
+    return self!exec_command("SCRIPT EXISTS", |@scripts);
+}
+
+method script_flush() returns Bool {
+    return self!exec_command("SCRIPT FLUSH");
+}
+
+method script_kill() returns Bool {
+    return self!exec_command("SCRIPT KILL");
+}
+
+method script_load(Str $script) returns Any {
+    return self!exec_command("SCRIPT LOAD", $script);
+}
+
+###### ! Commands/Scripting #######
 
 # vim: ft=perl6
