@@ -9,7 +9,7 @@ my $r = Redis.new(decode_response => True);
 $r.connect;
 $r.flushall;
 
-plan 8;
+plan 23;
 
 is_deeply $r.zadd("myzset", ONE => 1, TWO => 2, THREE=> 3), 3;
 is_deeply $r.zadd("myzset", "ZERO", 0, "ONE" => 1, TWO => 2, THREE=> 3), 1;

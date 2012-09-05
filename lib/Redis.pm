@@ -24,7 +24,7 @@ has Str $.encoding = "UTF-8"; # Use this encoding to decode Str
 # If True, decode Buf response into Str, except following methods:
 #   dump
 # which, must return Buf
-has Bool $.decode_response = True;
+has Bool $.decode_response = False;
 has $.conn is rw;
 
 # Predefined callbacks
