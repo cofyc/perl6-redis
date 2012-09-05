@@ -5,5 +5,5 @@
     "author" : "Yecheng Fu",
     "depends" : [],
     "source-type": "git",
-    "source-url" : "git://github.com/Cofyc/perl6-redis.git",
+    "source-url" : "git://github.com/Cofyc/perl6-redis.git"
 }
