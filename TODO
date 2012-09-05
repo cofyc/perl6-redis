@@ -1,6 +1,5 @@
 Commands
     - sort
 
-* fixbug: use recv on IO::Socket instead get
 * complete method signatures
-* support debug & timeout options
+* support timeout options

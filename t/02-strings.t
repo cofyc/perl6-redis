@@ -5,8 +5,11 @@ use Redis;
 use Test;
 use Test::SpawnRedisServer;
 
-my $r = Redis.new();
+my $r = Redis.new(decode_response => True);
 $r.connect;
+$r.flushall;
+
+plan 35;
 
 # append
 $r.del("key");

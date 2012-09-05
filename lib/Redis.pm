@@ -15,11 +15,24 @@ use v6;
 #
 # =end Pod
 
-# Initiate callbacks
+class Redis;
+
+has Str $.host = '127.0.0.1';
+has Int $.port = 6379;
+has Str $.sock; # if sock is defined, use sock
+has Str $.encoding = "UTF-8"; # Use this encoding to decode Str
+# If True, decode Buf response into Str, except following methods:
+#   dump
+# which, must return Buf
+has Bool $.decode_response = False;
+has $.conn is rw;
+
+# Predefined callbacks
 my &status_code_reply_cb = { $_ eq "OK" };
 my &integer_reply_cb = { $_.Bool };
-my &string_to_float_cb = { $_.Real };
-my %command_callbacks = ();
+my &buf_to_float_cb = { $_.decode("ASCII").Real };
+
+my %command_callbacks = Hash.new;
 %command_callbacks{"PING"} = { $_ eq "PONG" };
 for "AUTH QUIT SET MSET PSETEX SETEX MIGRATE RENAME RENAMENX RESTORE HMSET SELECT LSET LTRIM FLUSHALL".split(" ") -> $c {
     %command_callbacks{$c} = &status_code_reply_cb;
@@ -28,30 +41,23 @@ for "EXISTS SETNX EXPIRE EXPIREAT MOVE PERSIST PEXPIRE PEXPIREAT HSET HEXISTS HS
     %command_callbacks{$c} = &integer_reply_cb;
 }
 for "INCRBYFLOAT HINCRBYFLOAT".split(" ") -> $c {
-    %command_callbacks{$c} = &string_to_float_cb;
+    %command_callbacks{$c} = &buf_to_float_cb;
 }
-%command_callbacks{"HGETALL"} = {
-        # TODO so ugly...
-        my %h = ();
-        my $l = $_;
-        for $_.pairs {
-            if .key % 2 eq 0 {
-                %h{.value} = $l[.key + 1];
-            }
+# TODO so ugly...
+# @see hash key is Str in ISO-8859-1 encoding
+%command_callbacks{"HGETALL"} = sub (@list) returns Hash {
+    my %h = Hash.new;
+    for @list.pairs -> $p {
+        if $p.key % 2 eq 0 {
+            %h{$p.value.decode("ISO-8859-1")} = @list[$p.key + 1];
         }
-        return %h;
-    };
+    }
+    return %h;
+};
 
-class Redis;
-
-has Str $.host = '127.0.0.1';
-has Int $.port = 6379;
-has Str $.sock; # if sock is defined, use sock
-has Bool $.debug = False;
-has $.conn is rw;
 has %!command_callbacks = %command_callbacks;
 
-method new(Str $server?, Bool :$debug?) {
+method new(Str $server?, Str :$encoding?, Bool :$decode_response?) {
     my %config = {}
     if $server.defined {
         if $server ~~ m/^([\d+]+ %\.) [':' (\d+)]?$/ {
@@ -63,8 +69,11 @@ method new(Str $server?, Bool :$debug?) {
             %config<sock> = $server;
         }
     }
-    if $debug.defined {
-        %config<debug> = $debug;
+    if $encoding.defined {
+        %config<encoding> = $encoding;
+    }
+    if $decode_response.defined {
+        %config<decode_response> = $decode_response;
     }
     return self.bless(*, |%config);
 }
@@ -77,35 +86,43 @@ method connect {
     }
 }
 
-method !pack_command(*@args) {
-    my $cmd = '*' ~ @args.elems ~ "\r\n";
+multi method encode(Str:D $value) returns Buf {
+    return $value.encode(self.encoding);
+}
+
+multi method encode(Buf:D $value) returns Buf {
+    return $value;
+}
+
+# convert to Str, then to Buf
+multi method encode($value) returns Buf {
+    return self.encode($value.Str);
+}
+
+method !pack_command(*@args) returns Buf {
+    my $cmd = self.encode('*' ~ @args.elems ~ "\r\n");
     for @args -> $arg {
-        $cmd ~= '$';
-        $cmd ~= $arg.chars;
-        $cmd ~= "\r\n";
-        $cmd ~= $arg;
-        $cmd ~= "\r\n";
+        my $new = self.encode($arg);
+        $cmd ~= '$'.encode;
+        $cmd ~= self.encode($new.bytes);
+        $cmd ~= "\r\n".encode;
+        $cmd ~= $new;
+        $cmd ~= "\r\n".encode;
     }
     return $cmd;
 }
 
-
-method !send_command(*@args) {
-    $.conn.send(self!pack_command(|@args));
-}
-
-method !exec_command(*@args) {
+method !exec_command(*@args) returns Any {
     if @args.elems <= 0 {
         die "Invalid command.";
     }
-    my Str $cmd = @args[0];
-    self!send_command(|@args);
-    return self!parse_response(self!read_response(), $cmd);
+    $.conn.write(self!pack_command(|@args));
+    return self!parse_response(self!read_response(), @args[0]);
 }
 
-# call get on Socket::IO, don't use recv, cuz they are use different buffer.
-method !read_response {
-    my $first-line = $.conn.get();
+# Returns Str/Int/Buf/Array
+method !read_response returns Any {
+    my $first-line = $.conn.get;
     my ($flag, $response) = $first-line.substr(0, 1), $first-line.substr(1);
     if $flag !eq any('+', '-', ':', '$', '*') {
         die "Unknown response from redis!\n";
@@ -113,7 +130,7 @@ method !read_response {
     if $flag eq '+' {
         # single line reply, pass
     } elsif $flag eq '-' {
-        # on error
+        # on error, throw exception
         die $response;
     } elsif $flag eq ':' {
         # int value
@@ -124,8 +141,8 @@ method !read_response {
         if $length eq -1 {
             return Nil;
         }
-        $response = $.conn.get();
-        if $response.chars !eq $length {
+        $response = $.conn.read($length + 2).subbuf(0, $length);
+        if $response.bytes !eq $length {
             die "Invalid response.";
         }
     } elsif $flag eq '*' {
@@ -142,9 +159,28 @@ method !read_response {
     return $response;
 }
 
-method !parse_response($response, $command) {
+method !decode_response($response) {
+    if $response.WHAT === Buf {
+        return $response.decode(self.encoding);
+    } elsif $response.WHAT === Array {
+        return $response.map( { self!decode_response($_) } ).Array;
+    } elsif $response.WHAT === Hash {
+        my %h = Hash.new;
+        for $response.pairs {
+            %h{.key} = self!decode_response(.value);
+        }
+        return %h;
+    } else {
+        return $response;
+    }
+}
+
+method !parse_response($response is copy, Str $command) {
     if %!command_callbacks.exists($command) {
-        return %!command_callbacks{$command}($response);
+        $response =  %!command_callbacks{$command}($response);
+    }
+    if self.decode_response and $command !eq any("DUMP") {
+        $response = self!decode_response($response);
     }
     return $response;
 }
@@ -189,7 +225,7 @@ method del(*@keys) returns Int {
     return self!exec_command("DEL", |@keys);
 }
 
-method dump(Str $key) returns Str {
+method dump(Str $key) returns Buf {
     return self!exec_command("DUMP", $key);
 }
 
@@ -209,7 +245,7 @@ method ttl(Str $key) returns Int {
     return self!exec_command("TTL", $key);
 }
 
-method keys(Str $pattern) returns Array {
+method keys(Str $pattern) returns List {
     return self!exec_command("KEYS", $pattern);
 }
 
@@ -253,7 +289,7 @@ method renamenx(Str $key, Str $newkey) returns Bool {
     return self!exec_command("RENAMENX", $key, $newkey);
 }
 
-method restore(Str $key, Int $milliseconds, Str $serialized-value) returns Bool {
+method restore(Str $key, Int $milliseconds, Buf $serialized-value) returns Bool {
     return self!exec_command("RESTORE", $key, $milliseconds, $serialized-value);
 }
 
@@ -263,7 +299,7 @@ method sort(Str $key, Str :$by?,
         Bool :$desc = False,
         Bool :$alpha = False,
         Str :$store?
-    ) returns Array {
+    ) returns List {
     if ($offset.defined and !$count.defined) or (!$offset.defined and $count.defined) {
         die "`offset` and `count` must both be specified.";
     }
@@ -390,8 +426,6 @@ method decrby(Str $key, Int $increment) {
 ###### ! Commands/Strings ######
 
 ###### Commands/Hashes ######
-#
-# field can be integer/string
 
 method hdel(Str $key, *@fields) returns Int {
     return self!exec_command("HDEL", $key, |@fields);
@@ -417,7 +451,7 @@ method hincrbyfloat(Str $key, $field, Real $increment) returns Real {
     return self!exec_command("HINCRBYFLOAT", $key, $field, $increment);
 }
 
-method hkeys(Str $key) returns Array {
+method hkeys(Str $key) returns List {
     return self!exec_command("HKEYS", $key);
 }
 
@@ -425,7 +459,7 @@ method hlen(Str $key) returns Int {
     return self!exec_command("HLEN", $key);
 }
 
-method hmget(Str $key, *@fields) returns Array {
+method hmget(Str $key, *@fields) returns List {
     return self!exec_command("HMGET", $key, |@fields);
 }
 
@@ -445,7 +479,7 @@ method hsetnx(Str $key, $field, $value) returns Bool {
     return self!exec_command("HSETNX", $key, $field, $value);
 }
 
-method hvals(Str $key) returns Array {
+method hvals(Str $key) returns List {
     return self!exec_command("HVALS", $key);
 }
 
@@ -490,7 +524,7 @@ method lpushx(Str $key, $value) returns Int {
     return self!exec_command("LPUSHX", $key, $value);
 }
 
-method lrange(Str $key, Int $start, Int $stop) returns Array {
+method lrange(Str $key, Int $start, Int $stop) returns List {
     return self!exec_command("LRANGE", $key, $start, $stop);
 }
 
@@ -534,7 +568,7 @@ method scard(Str $key) returns Int {
     return self!exec_command("SCARD", $key);
 }
 
-method sdiff(*@keys) returns Array {
+method sdiff(*@keys) returns List {
     return self!exec_command("SDIFF", |@keys);
 }
 
@@ -542,7 +576,7 @@ method sdiffstore(Str $destination, *@keys) returns Int {
     return self!exec_command("SDIFFSTORE", $destination, |@keys);
 }
 
-method sinter(*@keys) returns Array {
+method sinter(*@keys) returns List {
     return self!exec_command("SINTER", |@keys);
 }
 
@@ -554,7 +588,7 @@ method sismember(Str $key, $member) {
     return self!exec_command("SISMEMBER", $key, $member);
 }
 
-method smembers(Str $key) returns Array {
+method smembers(Str $key) returns List {
     return self!exec_command("SMEMBERS", $key);
 }
 
@@ -574,7 +608,7 @@ method srem(Str $key, *@members) returns Int {
     return self!exec_command("SREM", |@members);
 }
 
-method sunion(*@keys) returns Array {
+method sunion(*@keys) returns List {
     return self!exec_command("SUNION", |@keys);
 }
 
@@ -582,6 +616,58 @@ method sunionstore(Str $destination, *@keys) returns Int {
     return self!exec_command("SUNIONSTORE", $destination, |@keys);
 }
 
-###### !Commands/Sets #######
+###### ! Commands/Sets #######
+
+###### Commands/SortedSets #######
+
+method zadd(Str $key, *@args, *%named) returns Int {
+}
+
+method zcard(Str $key) returns Int {
+}
+
+method zcount(Str $key, $min, $max) returns Int {
+}
+
+method zincrby(Str $key, $increment, $member) {
+}
+
+method zinterstore() {
+}
+
+method zrange(Str $key, $start, $stop, :$WITHSCORES?) {
+}
+
+method zrangebyscore(Str $key, $min, $max, :$WITHSCORES, :$offset, :$count) {
+}
+
+method zrank(Str $key, $member) {
+}
+
+method zrem(Str $key, *@members) {
+}
+
+method zremrangbyrank(Str $key, $start, $stop) {
+}
+
+method zremrangebyscore(Str $key, $min, $max) {
+}
+
+method zrevrange(Str $key, $start, $stop, :$WITHSCORES) {
+}
+
+method zrevrangebyscore(Str $key, $max, $min, :$WITHSCORES, :$offset, :$count) {
+}
+
+method zrevrank(Str $key, $member) {
+}
+
+method zscore(Str $key, $member) {
+}
+
+method zunionstore(Str $destination, $numkeys, *@keys) {
+}
+
+###### ! Commands/SortedSets #######
 
 # vim: ft=perl6

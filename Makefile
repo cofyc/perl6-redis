@@ -6,13 +6,17 @@ BLIB   = blib
 P6LIB  = $(PWD)/$(BLIB)/lib:$(PWD)/lib
 CP     = cp -p
 MKDIR  = mkdir -p
+RM		= rm -rf
 BLIB_PIRS = $(BLIB)/lib/Redis.pir
 
 all: $(BLIB_PIRS)
 
 $(BLIB)/lib/Redis.pir: lib/Redis.pm
 	$(MKDIR) $(BLIB)/lib/
-	PERL6LIB=$(BLIB) $(PERL6) --target=pir --output=$@ $^
+	$(PERL6) --target=pir --output=$@ $^
 
 test: all
 	env PERL6LIB=$(P6LIB) prove -e '$(PERL6)' -r t/
+
+clean:
+	$(RM) $(BLIB)

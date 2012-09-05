@@ -7,20 +7,17 @@ my @new_tasks =
     \() => {
         'host' => '127.0.0.1',
         'port' => 6379,
-        'debug' => False,
     }
     , \('192.168.0.1') => {
         'host' => '192.168.0.1',
         'port' => 6379,
     }
-    , \('192.168.0.1:6379', debug => True) => {
+    , \('192.168.0.1:6379') => {
         'host' => '192.168.0.1',
         'port' => 6379,
-        'debug' => True,
     }
-    , \('/path/to/redis.sock', debug => True) => {
+    , \('/path/to/redis.sock') => {
         'sock' => '/path/to/redis.sock',
-        'debug' => True,
     }
     ;
         
