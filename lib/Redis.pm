@@ -34,7 +34,7 @@ my &buf_to_float_cb = { $_.decode("ASCII").Real };
 
 my %command_callbacks = Hash.new;
 %command_callbacks{"PING"} = { $_ eq "PONG" };
-for "AUTH,QUIT,SET,MSET,PSETEX,SETEX,MIGRATE,RENAME,RENAMENX,RESTORE,HMSET,SELECT,LSET,LTRIM,FLUSHALL,FLUSHDB,DISCARD,MULTI,WATCH,UNWATCH,SCRIPT FLUSH,SCRIPT KILL".split(",") -> $c {
+for "CLIENT KILL,BGSAVE,BGREWRITEAOF,AUTH,QUIT,SET,MSET,PSETEX,SETEX,MIGRATE,RENAME,RENAMENX,RESTORE,HMSET,SELECT,LSET,LTRIM,FLUSHALL,FLUSHDB,DISCARD,MULTI,WATCH,UNWATCH,SCRIPT FLUSH,SCRIPT KILL".split(",") -> $c {
     %command_callbacks{$c} = &status_code_reply_cb;
 }
 for "EXISTS SETNX EXPIRE EXPIREAT MOVE PERSIST PEXPIRE PEXPIREAT HSET HEXISTS HSETNX SISMEMBER SMOVE".split(" ") -> $c {
@@ -124,7 +124,7 @@ method !pack_command(*@args) returns Buf {
     return $cmd;
 }
 
-method !exec_command(Str $command, *@args) returns Any {
+method exec_command(Str $command, *@args) returns Any {
     @args.unshift($command.split(" "));
     $.conn.write(self!pack_command(|@args));
     return self!parse_response(self!read_response(), $command);
@@ -198,41 +198,53 @@ method !parse_response($response is copy, Str $command) {
 ####### Commands/Connection #######
 
 method auth(Str $password) returns Bool {
-    return self!exec_command("AUTH", $password);
+    return self.exec_command("AUTH", $password);
 }
 
 method echo($message) returns Str {
-    return self!exec_command("ECHO", $message);
+    return self.exec_command("ECHO", $message);
 }
 
 # Ping the server.
 method ping returns Bool {
-    return self!exec_command("PING");
+    return self.exec_command("PING");
 }
 
 # Ask the server to close the connection. The connection is closed as soon as all pending replies have been written to the client.
 method quit returns Bool {
-    return self!exec_command("QUIT");
+    return self.exec_command("QUIT");
 }
 
 method select(Int $index) returns Bool {
-    return self!exec_command("SELECT", $index);
+    return self.exec_command("SELECT", $index);
 }
 
 ####### ! Commands/Connection #######
 
 ####### Commands/Server #######
 
+method bgrewriteaof() returns Bool {
+    return self.exec_command("BGREWRITEAOF");
+}
+
+method bgsave() returns Bool {
+    return self.exec_command("BGSAVE");
+}
+
+method client_kill(Str $ip, Int $port) returns Bool {
+    return self.exec_command("CLIENT KILL", $ip, $port);
+}
+
 method flushall() returns Bool {
-    return self!exec_command("FLUSHALL");
+    return self.exec_command("FLUSHALL");
 }
 
 method flushdb() returns Bool {
-    return self!exec_command("FLUSHDB");
+    return self.exec_command("FLUSHDB");
 }
 
 method info() returns Hash {
-    return self!exec_command("INFO");
+    return self.exec_command("INFO");
 }
 
 ####### ! Commands/Server #######
@@ -240,75 +252,75 @@ method info() returns Hash {
 ###### Commands/Keys #######
 
 method del(*@keys) returns Int {
-    return self!exec_command("DEL", |@keys);
+    return self.exec_command("DEL", |@keys);
 }
 
 method dump(Str $key) returns Buf {
-    return self!exec_command("DUMP", $key);
+    return self.exec_command("DUMP", $key);
 }
 
 method exists(Str $key) returns Bool {
-    return self!exec_command("EXISTS", $key);
+    return self.exec_command("EXISTS", $key);
 }
 
 method expire(Str $key, Int $seconds) returns Bool {
-    return self!exec_command("EXPIRE", $key, $seconds);
+    return self.exec_command("EXPIRE", $key, $seconds);
 }
 
 method expireat(Str $key, Int $timestamp) returns Bool {
-    return self!exec_command("EXPIREAT", $key, $timestamp);
+    return self.exec_command("EXPIREAT", $key, $timestamp);
 }
 
 method ttl(Str $key) returns Int {
-    return self!exec_command("TTL", $key);
+    return self.exec_command("TTL", $key);
 }
 
 method keys(Str $pattern) returns List {
-    return self!exec_command("KEYS", $pattern);
+    return self.exec_command("KEYS", $pattern);
 }
 
 method migrate(Str $host, Int $port, Str $key, Str $destination-db, Int $timeout) returns Bool {
-    return self!exec_command("MIGRATE", $host, $port, $key, $destination-db, $timeout);
+    return self.exec_command("MIGRATE", $host, $port, $key, $destination-db, $timeout);
 }
 
 method move(Str $key, Str $db) returns Bool {
-    return self!exec_command("MOVE", $key, $db);
+    return self.exec_command("MOVE", $key, $db);
 }
 
 method object(Str $subcommand, *@arguments) {
-    return self!exec_command("OBJECT", $subcommand, |@arguments);
+    return self.exec_command("OBJECT", $subcommand, |@arguments);
 }
 
 method persist(Str $key) returns Bool {
-    return self!exec_command("PERSIST", $key);
+    return self.exec_command("PERSIST", $key);
 }
 
 method pexpire(Str $key, Int $milliseconds) returns Bool {
-    return self!exec_command("PEXPIRE", $key, $milliseconds);
+    return self.exec_command("PEXPIRE", $key, $milliseconds);
 }
 
 method pexpireat(Str $key, Int $milliseconds-timestamp) returns Bool {
-    return self!exec_command("PEXPIREAT", $key, $milliseconds-timestamp);
+    return self.exec_command("PEXPIREAT", $key, $milliseconds-timestamp);
 }
 
 method pttl(Str $key) returns Int {
-    return self!exec_command("TTL", $key);
+    return self.exec_command("TTL", $key);
 }
 
 method randomkey() {
-    return self!exec_command("RANDOMKEY");
+    return self.exec_command("RANDOMKEY");
 }
 
 method rename(Str $key, Str $newkey) returns Bool {
-    return self!exec_command("RENAME", $key, $newkey);
+    return self.exec_command("RENAME", $key, $newkey);
 }
 
 method renamenx(Str $key, Str $newkey) returns Bool {
-    return self!exec_command("RENAMENX", $key, $newkey);
+    return self.exec_command("RENAMENX", $key, $newkey);
 }
 
 method restore(Str $key, Int $milliseconds, Buf $serialized-value) returns Bool {
-    return self!exec_command("RESTORE", $key, $milliseconds, $serialized-value);
+    return self.exec_command("RESTORE", $key, $milliseconds, $serialized-value);
 }
 
 method sort(Str $key, Str :$by?,
@@ -329,7 +341,7 @@ method sort(Str $key, Str :$by?,
 # Returns the string representation of the type of the value stored at key. The
 # different types that can be returned are: none, string, list, set, zset and hash.
 method type(Str $key) {
-    return self!exec_command("TYPE", $key);
+    return self.exec_command("TYPE", $key);
 }
 
 ###### ! Commands/Keys #######
@@ -337,7 +349,7 @@ method type(Str $key) {
 ###### Commands/Strings ######
 
 method append(Str $key, $value) returns Int {
-    return self!exec_command("APPEND", $key, $value);
+    return self.exec_command("APPEND", $key, $value);
 }
 
 method bitcount(Str $key, Int $start?, Int $end?) returns Int {
@@ -348,59 +360,59 @@ method bitcount(Str $key, Int $start?, Int $end?) returns Int {
     } elsif $start.defined or $end.defined {
         die "Both start and end must be specified.";
     }
-    return self!exec_command("BITCOUNT", |@args);
+    return self.exec_command("BITCOUNT", |@args);
 }
 
 method bitop(Str $op, Str $key, *@keys) {
-    return self!exec_command("BITOP", $op, $key, |@keys);
+    return self.exec_command("BITOP", $op, $key, |@keys);
 }
 
 method get(Str $key) {
-    return self!exec_command("GET", $key);
+    return self.exec_command("GET", $key);
 }
 
 method set(Str $key, $value) returns Bool {
-    return self!exec_command("SET", $key, $value);
+    return self.exec_command("SET", $key, $value);
 }
 
 method setbit(Str $key, Int $offset, $value) returns Int {
-    return self!exec_command("SETBIT", $key, $offset, $value);
+    return self.exec_command("SETBIT", $key, $offset, $value);
 }
 
 method setex(Str $key, Int $seconds, $value) {
-    return self!exec_command("SETEX", $key, $seconds, $value);
+    return self.exec_command("SETEX", $key, $seconds, $value);
 }
 
 method setnx(Str $key, $value) returns Bool {
-    return self!exec_command("SETNX", $key, $value);
+    return self.exec_command("SETNX", $key, $value);
 }
 
 method setrange(Str $key, Int $offset, $value) returns Int {
-    return self!exec_command("SETRANGE", $key, $offset, $value);
+    return self.exec_command("SETRANGE", $key, $offset, $value);
 }
 
 method strlen(Str $key) returns Int {
-    return self!exec_command("STRLEN", $key);
+    return self.exec_command("STRLEN", $key);
 }
 
 method getbit(Str $key, Int $offset) returns Int {
-    return self!exec_command("GETBIT", $key, $offset);
+    return self.exec_command("GETBIT", $key, $offset);
 }
 
 method getrange(Str $key, Int $start, Int $end) returns Str {
-    return self!exec_command("GETRANGE", $key, $start, $end);
+    return self.exec_command("GETRANGE", $key, $start, $end);
 }
 
 method getset(Str $key, $value) {
-    return self!exec_command("GETSET", $key, $value);
+    return self.exec_command("GETSET", $key, $value);
 }
 
 method incrbyfloat(Str $key, Real $increment) returns Real {
-    return self!exec_command("INCRBYFLOAT", $key, $increment);
+    return self.exec_command("INCRBYFLOAT", $key, $increment);
 }
 
 method mget(*@keys) {
-    return self!exec_command("MGET", |@keys);
+    return self.exec_command("MGET", |@keys);
 }
 
 # Sets the given keys to their respective values.
@@ -410,7 +422,7 @@ method mset(*@args, *%named) {
         @args.push(.key);
         @args.push(.value);
     }
-    return self!exec_command("MSET", |@args);
+    return self.exec_command("MSET", |@args);
 }
 
 method msetnx(*@args, *%named) {
@@ -418,27 +430,27 @@ method msetnx(*@args, *%named) {
         @args.push(.key);
         @args.push(.value);
     }
-    return self!exec_command("MSETNX", |@args);
+    return self.exec_command("MSETNX", |@args);
 }
 
 method psetex(Str $key, Int $milliseconds, $value) {
-    return self!exec_command("PSETEX", $key, $milliseconds, $value);
+    return self.exec_command("PSETEX", $key, $milliseconds, $value);
 }
 
 method incr(Str $key) {
-    return self!exec_command("INCR", $key);
+    return self.exec_command("INCR", $key);
 }
 
 method incrby(Str $key, Int $increment) {
-    return self!exec_command("INCRBY", $key, $increment);
+    return self.exec_command("INCRBY", $key, $increment);
 }
 
 method decr(Str $key) {
-    return self!exec_command("DECR", $key);
+    return self.exec_command("DECR", $key);
 }
 
 method decrby(Str $key, Int $increment) {
-    return self!exec_command("DECRBY", $key, $increment);
+    return self.exec_command("DECRBY", $key, $increment);
 }
 
 ###### ! Commands/Strings ######
@@ -446,39 +458,39 @@ method decrby(Str $key, Int $increment) {
 ###### Commands/Hashes ######
 
 method hdel(Str $key, *@fields) returns Int {
-    return self!exec_command("HDEL", $key, |@fields);
+    return self.exec_command("HDEL", $key, |@fields);
 }
 
 method hexists(Str $key, $field) returns Bool {
-    return self!exec_command("HEXISTS", $key, $field);
+    return self.exec_command("HEXISTS", $key, $field);
 }
 
 method hget(Str $key, $field) returns Any {
-    return self!exec_command("HGET", $key, $field);
+    return self.exec_command("HGET", $key, $field);
 }
 
 method hgetall(Str $key) returns Hash {
-    return self!exec_command("HGETALL", $key);
+    return self.exec_command("HGETALL", $key);
 }
 
 method hincrby(Str $key, $field, Int $increment) returns Int {
-    return self!exec_command("HINCRBY", $key, $field, $increment);
+    return self.exec_command("HINCRBY", $key, $field, $increment);
 }
 
 method hincrbyfloat(Str $key, $field, Real $increment) returns Real {
-    return self!exec_command("HINCRBYFLOAT", $key, $field, $increment);
+    return self.exec_command("HINCRBYFLOAT", $key, $field, $increment);
 }
 
 method hkeys(Str $key) returns List {
-    return self!exec_command("HKEYS", $key);
+    return self.exec_command("HKEYS", $key);
 }
 
 method hlen(Str $key) returns Int {
-    return self!exec_command("HLEN", $key);
+    return self.exec_command("HLEN", $key);
 }
 
 method hmget(Str $key, *@fields) returns List {
-    return self!exec_command("HMGET", $key, |@fields);
+    return self.exec_command("HMGET", $key, |@fields);
 }
 
 method hmset(Str $key, *@args, *%named) returns Bool {
@@ -486,19 +498,19 @@ method hmset(Str $key, *@args, *%named) returns Bool {
         @args.push(.key);
         @args.push(.value);
     }
-    return self!exec_command("HMSET", $key, |@args);
+    return self.exec_command("HMSET", $key, |@args);
 }
 
 method hset(Str $key, $field, $value) returns Bool {
-    return self!exec_command("HSET", $key, $field, $value);
+    return self.exec_command("HSET", $key, $field, $value);
 }
 
 method hsetnx(Str $key, $field, $value) returns Bool {
-    return self!exec_command("HSETNX", $key, $field, $value);
+    return self.exec_command("HSETNX", $key, $field, $value);
 }
 
 method hvals(Str $key) returns List {
-    return self!exec_command("HVALS", $key);
+    return self.exec_command("HVALS", $key);
 }
 
 ###### ! Commands/Hashes ######
@@ -506,72 +518,72 @@ method hvals(Str $key) returns List {
 ###### Commands/Lists ######
 
 method blpop(Int $timeout, *@keys) returns Any {
-    return self!exec_command("BLPOP", |@keys, $timeout);
+    return self.exec_command("BLPOP", |@keys, $timeout);
 }
 
 method brpop(Int $timeout, *@keys) returns Any {
-    return self!exec_command("BRPOP", |@keys, $timeout);
+    return self.exec_command("BRPOP", |@keys, $timeout);
 }
 
 method brpoplpush(Str $source, Str $destination, Int $timeout) returns Any {
-    return self!exec_command("BRPOPLPUSH", $source, $destination, $timeout);
+    return self.exec_command("BRPOPLPUSH", $source, $destination, $timeout);
 }
 
 # Returns the element at index in the list, or nil when index is out of range.
 method lindex(Str $key, Int $index) returns Any {
-    return self!exec_command("LINDEX", $key, $index);
+    return self.exec_command("LINDEX", $key, $index);
 }
 
 method linsert(Str $key, Str $where where { $where eq any("BEFORE", "AFTER") }, $pivot, $value) returns Int {
-    return self!exec_command("LINSERT", $key, $where, $pivot, $value);
+    return self.exec_command("LINSERT", $key, $where, $pivot, $value);
 }
 
 method llen(Str $key) returns Int {
-    return self!exec_command("LLEN", $key);
+    return self.exec_command("LLEN", $key);
 }
 
 method lpop(Str $key) returns Any {
-    return self!exec_command("LPOP", $key);
+    return self.exec_command("LPOP", $key);
 }
 
 method lpush(Str $key, *@values) returns Int {
-    return self!exec_command("LPUSH", $key, |@values);
+    return self.exec_command("LPUSH", $key, |@values);
 }
 
 method lpushx(Str $key, $value) returns Int {
-    return self!exec_command("LPUSHX", $key, $value);
+    return self.exec_command("LPUSHX", $key, $value);
 }
 
 method lrange(Str $key, Int $start, Int $stop) returns List {
-    return self!exec_command("LRANGE", $key, $start, $stop);
+    return self.exec_command("LRANGE", $key, $start, $stop);
 }
 
 method lrem(Str $key, Int $count, $value) returns Int {
-    return self!exec_command("LREM", $key, $count, $value);
+    return self.exec_command("LREM", $key, $count, $value);
 }
 
 method lset(Str $key, Int $index, $value) {
-    return self!exec_command("LSET", $key, $index, $value);
+    return self.exec_command("LSET", $key, $index, $value);
 }
 
 method ltrim(Str $key, Int $start, Int $stop) {
-    return self!exec_command("LTRIM", $key, $start, $stop);
+    return self.exec_command("LTRIM", $key, $start, $stop);
 }
 
 method rpop(Str $key) returns Any {
-    return self!exec_command("RPOP", $key);
+    return self.exec_command("RPOP", $key);
 }
 
 method rpoplpush(Str $source, Str $destination) returns Str {
-    return self!exec_command("RPOPLPUSH", $source, $destination);
+    return self.exec_command("RPOPLPUSH", $source, $destination);
 }
 
 method rpush(Str $key, *@values) returns Int {
-    return self!exec_command("RPUSH", $key, |@values);
+    return self.exec_command("RPUSH", $key, |@values);
 }
 
 method rpushx(Str $key, $value) {
-    return self!exec_command("RPUSHX", $key, $value);
+    return self.exec_command("RPUSHX", $key, $value);
 }
 
 ###### ! Commands/Lists ######
@@ -579,59 +591,59 @@ method rpushx(Str $key, $value) {
 ###### Commands/Sets #######
 
 method sadd(Str $key, *@members) returns Int {
-    return self!exec_command("SADD", $key, |@members);
+    return self.exec_command("SADD", $key, |@members);
 }
 
 method scard(Str $key) returns Int {
-    return self!exec_command("SCARD", $key);
+    return self.exec_command("SCARD", $key);
 }
 
 method sdiff(*@keys) returns List {
-    return self!exec_command("SDIFF", |@keys);
+    return self.exec_command("SDIFF", |@keys);
 }
 
 method sdiffstore(Str $destination, *@keys) returns Int {
-    return self!exec_command("SDIFFSTORE", $destination, |@keys);
+    return self.exec_command("SDIFFSTORE", $destination, |@keys);
 }
 
 method sinter(*@keys) returns List {
-    return self!exec_command("SINTER", |@keys);
+    return self.exec_command("SINTER", |@keys);
 }
 
 method sinterstore(Str $destination, *@keys) returns Int {
-    return self!exec_command("SINTERSTORE", $destination, |@keys);
+    return self.exec_command("SINTERSTORE", $destination, |@keys);
 }
 
 method sismember(Str $key, $member) {
-    return self!exec_command("SISMEMBER", $key, $member);
+    return self.exec_command("SISMEMBER", $key, $member);
 }
 
 method smembers(Str $key) returns List {
-    return self!exec_command("SMEMBERS", $key);
+    return self.exec_command("SMEMBERS", $key);
 }
 
 method smove(Str $source, Str $destination, $member) returns Bool {
-    return self!exec_command("SMOVE", $source, $destination, $member);
+    return self.exec_command("SMOVE", $source, $destination, $member);
 }
 
 method spop(Str $key) returns Any {
-    return self!exec_command("SPOP", $key);
+    return self.exec_command("SPOP", $key);
 }
 
 method srandmember(Str $key) returns Any {
-    return self!exec_command("SRANDMEMBER", $key);
+    return self.exec_command("SRANDMEMBER", $key);
 }
 
 method srem(Str $key, *@members) returns Int {
-    return self!exec_command("SREM", |@members);
+    return self.exec_command("SREM", |@members);
 }
 
 method sunion(*@keys) returns List {
-    return self!exec_command("SUNION", |@keys);
+    return self.exec_command("SUNION", |@keys);
 }
 
 method sunionstore(Str $destination, *@keys) returns Int {
-    return self!exec_command("SUNIONSTORE", $destination, |@keys);
+    return self.exec_command("SUNIONSTORE", $destination, |@keys);
 }
 
 ###### ! Commands/Sets #######
@@ -656,20 +668,20 @@ method zadd(Str $key, *@args, *%named) returns Int {
     if @newargs.elems % 2 != 0 {
         die "ZADD requires an equal number of values and scores";
     }
-    return self!exec_command("ZADD", $key, |@newargs);
+    return self.exec_command("ZADD", $key, |@newargs);
 }
 
 method zcard(Str $key) returns Int {
-    return self!exec_command("ZCARD", $key);
+    return self.exec_command("ZCARD", $key);
 }
 
 # TODO support (1, -inf, +inf syntax, http://redis.io/commands/zcount
 method zcount(Str $key, Real $min, Real $max) returns Int {
-    return self!exec_command("ZCOUNT", $key, $min, $max);
+    return self.exec_command("ZCOUNT", $key, $min, $max);
 }
 
 method zincrby(Str $key, Real $increment, $member) returns Real {
-    return self!exec_command("ZINCRBY", $key, $increment, $member);
+    return self.exec_command("ZINCRBY", $key, $increment, $member);
 }
 
 method zinterstore(Str $destination, *@keys, :WEIGHTS(@weights)?, :AGGREGATE(@aggregate)?) returns Int {
@@ -686,12 +698,12 @@ method zinterstore(Str $destination, *@keys, :WEIGHTS(@weights)?, :AGGREGATE(@ag
             @args.push($_);
         }
     }
-    return self!exec_command("ZINTERSTORE", $destination, @keys.elems, |@keys, |@args);
+    return self.exec_command("ZINTERSTORE", $destination, @keys.elems, |@keys, |@args);
 }
 
 # TODO return array of paires if WITHSCORES is set
 method zrange(Str $key, Int $start, Int $stop, :WITHSCORES($withscores)?) {
-    return self!exec_command("ZRANGE", $key, $start, $stop, $withscores.defined ?? "WITHSCORES" !! Nil);
+    return self.exec_command("ZRANGE", $key, $start, $stop, $withscores.defined ?? "WITHSCORES" !! Nil);
 }
 
 # TODO return array of paires if WITHSCORES is set
@@ -699,7 +711,7 @@ method zrangebyscore(Str $key, Real $min, Real $max, :WITHSCORES($withscores), I
     if ($offset.defined and !$count.defined) or (!$offset.defined and $count.defined) {
         die "`offset` and `count` must both be specified.";
     }
-    return self!exec_command("ZRANGEBYSCORE", $key, $min, $max,
+    return self.exec_command("ZRANGEBYSCORE", $key, $min, $max,
         $withscores.defined ?? "WITHSCORES" !! Nil,
         ($offset.defined and $count.defined) ?? "LIMIT" !! Nil,
         $offset.defined ?? $offset !! Nil,
@@ -708,24 +720,24 @@ method zrangebyscore(Str $key, Real $min, Real $max, :WITHSCORES($withscores), I
 }
 
 method zrank(Str $key, $member) returns Any {
-    return self!exec_command("ZRANK", $key, $member);
+    return self.exec_command("ZRANK", $key, $member);
 }
 
 method zrem(Str $key, *@members) returns Int {
-    return self!exec_command("ZREM", $key, |@members);
+    return self.exec_command("ZREM", $key, |@members);
 }
 
 method zremrangbyrank(Str $key, Int $start, Int $stop) returns Int {
-    return self!exec_command("ZREMRANGEBYRANK", $key, $start, $stop);
+    return self.exec_command("ZREMRANGEBYRANK", $key, $start, $stop);
 }
 
 method zremrangebyscore(Str $key, Real $min, Real $max) returns Int {
-    return self!exec_command("ZREMRANGEBYSCORE", $key, $min, $max);
+    return self.exec_command("ZREMRANGEBYSCORE", $key, $min, $max);
 }
 
 # TODO return array of paires if WITHSCORES is set
 method zrevrange(Str $key, $start, $stop, :WITHSCORES($withscores)?) {
-    return self!exec_command("ZREVRANGE", $key, $start, $stop, $withscores.defined ?? "WITHSCORES" !! Nil);
+    return self.exec_command("ZREVRANGE", $key, $start, $stop, $withscores.defined ?? "WITHSCORES" !! Nil);
 }
 
 # TODO return array of paires if WITHSCORES is set
@@ -733,7 +745,7 @@ method zrevrangebyscore(Str $key, Real $min, Real $max, :WITHSCORES($withscores)
     if ($offset.defined and !$count.defined) or (!$offset.defined and $count.defined) {
         die "`offset` and `count` must both be specified.";
     }
-    return self!exec_command("ZREVRANGEBYSCORE", $key, $min, $max,
+    return self.exec_command("ZREVRANGEBYSCORE", $key, $min, $max,
         $withscores.defined ?? "WITHSCORES" !! Nil,
         ($offset.defined and $count.defined) ?? "LIMIT" !! Nil,
         $offset.defined ?? $offset !! Nil,
@@ -742,11 +754,11 @@ method zrevrangebyscore(Str $key, Real $min, Real $max, :WITHSCORES($withscores)
 }
 
 method zrevrank(Str $key, $member) returns Any {
-    return self!exec_command("ZREVRANK", $key, $member);
+    return self.exec_command("ZREVRANK", $key, $member);
 }
 
 method zscore(Str $key, $member) returns Real {
-    return self!exec_command("ZSCORE", $key, $member);
+    return self.exec_command("ZSCORE", $key, $member);
 }
 
 method zunionstore(Str $destination, *@keys, :WEIGHTS(@weights)?, :AGGREGATE(@aggregate)?) returns Int {
@@ -763,7 +775,7 @@ method zunionstore(Str $destination, *@keys, :WEIGHTS(@weights)?, :AGGREGATE(@ag
             @args.push($_);
         }
     }
-    return self!exec_command("ZUNIONSTORE", $destination, @keys.elems, |@keys, |@args);
+    return self.exec_command("ZUNIONSTORE", $destination, @keys.elems, |@keys, |@args);
 }
 
 ###### ! Commands/SortedSets #######
@@ -771,23 +783,23 @@ method zunionstore(Str $destination, *@keys, :WEIGHTS(@weights)?, :AGGREGATE(@ag
 ###### Commands/Pub&Sub #######
 
 method psubscribe(*@patterns) {
-    return self!exec_command("PSUBSCRIBE", |@patterns);
+    return self.exec_command("PSUBSCRIBE", |@patterns);
 }
 
 method publish(Str $channel, $message) {
-    return self!exec_command("PUBLISH", $channel, $message);
+    return self.exec_command("PUBLISH", $channel, $message);
 }
 
 method punsubscribe(*@patterns) {
-    return self!exec_command("PUNSUBSCRIBE", |@patterns);
+    return self.exec_command("PUNSUBSCRIBE", |@patterns);
 }
 
 method subscribe(*@channels) {
-    return self!exec_command("SUBSCRIBE", |@channels);
+    return self.exec_command("SUBSCRIBE", |@channels);
 }
 
 method unsubscribe(*@channels) {
-    return self!exec_command("UNSUBSCRIBE", |@channels);
+    return self.exec_command("UNSUBSCRIBE", |@channels);
 }
 
 ###### ! Commands/Pub&Sub #######
@@ -795,24 +807,24 @@ method unsubscribe(*@channels) {
 ###### Commands/Transactions #######
 
 method discard() returns Bool {
-    return self!exec_command("DISCARD");
+    return self.exec_command("DISCARD");
 }
 
 # TODO format response according each command
 method exec() returns List {
-    return self!exec_command("EXEC");
+    return self.exec_command("EXEC");
 }
 
 method multi() returns Bool {
-    return self!exec_command("MULTI");
+    return self.exec_command("MULTI");
 }
 
 method unwatch() returns Bool {
-    return self!exec_command("UNWATCH");
+    return self.exec_command("UNWATCH");
 }
 
 method watch(*@keys) returns Bool {
-    return self!exec_command("WATCH");
+    return self.exec_command("WATCH");
 }
 
 ###### ! Commands/Transactions #######
@@ -820,27 +832,27 @@ method watch(*@keys) returns Bool {
 ###### Commands/Scripting #######
 
 method eval(Str $script, Int $numkeys, *@keys_and_args) returns Any {
-    return self!exec_command("EVAL", $script, $numkeys, |@keys_and_args);
+    return self.exec_command("EVAL", $script, $numkeys, |@keys_and_args);
 }
 
 method evalsha(Str $sha1, Int $numkeys, *@keys_and_args) returns Any {
-    return self!exec_command("EVALSHA", $sha1, $numkeys, |@keys_and_args);
+    return self.exec_command("EVALSHA", $sha1, $numkeys, |@keys_and_args);
 }
 
 method script_exists(*@scripts) returns List {
-    return self!exec_command("SCRIPT EXISTS", |@scripts);
+    return self.exec_command("SCRIPT EXISTS", |@scripts);
 }
 
 method script_flush() returns Bool {
-    return self!exec_command("SCRIPT FLUSH");
+    return self.exec_command("SCRIPT FLUSH");
 }
 
 method script_kill() returns Bool {
-    return self!exec_command("SCRIPT KILL");
+    return self.exec_command("SCRIPT KILL");
 }
 
 method script_load(Str $script) returns Any {
-    return self!exec_command("SCRIPT LOAD", $script);
+    return self.exec_command("SCRIPT LOAD", $script);
 }
 
 ###### ! Commands/Scripting #######
