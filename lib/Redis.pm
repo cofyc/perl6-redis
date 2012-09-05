@@ -24,7 +24,7 @@ has Str $.encoding = "UTF-8"; # Use this encoding to decode Str
 # If True, decode Buf response into Str, except following methods:
 #   dump
 # which, must return Buf
-has Bool $.decode_response = False;
+has Bool $.decode_response = True;
 has $.conn is rw;
 
 # Predefined callbacks
@@ -40,7 +40,7 @@ for "AUTH QUIT SET MSET PSETEX SETEX MIGRATE RENAME RENAMENX RESTORE HMSET SELEC
 for "EXISTS SETNX EXPIRE EXPIREAT MOVE PERSIST PEXPIRE PEXPIREAT HSET HEXISTS HSETNX SISMEMBER SMOVE".split(" ") -> $c {
     %command_callbacks{$c} = &integer_reply_cb;
 }
-for "INCRBYFLOAT HINCRBYFLOAT".split(" ") -> $c {
+for "INCRBYFLOAT HINCRBYFLOAT ZINCRBY ZSCORE".split(" ") -> $c {
     %command_callbacks{$c} = &buf_to_float_cb;
 }
 # TODO so ugly...
@@ -621,51 +621,131 @@ method sunionstore(Str $destination, *@keys) returns Int {
 ###### Commands/SortedSets #######
 
 method zadd(Str $key, *@args, *%named) returns Int {
+    my @newargs = Array.new;
+    @args = @args.reverse;
+    for @args {
+        if $_.WHAT === Pair {
+            @newargs.push(.value);
+            @newargs.push(.key);
+        } else {
+            @newargs.push($_);
+        }
+    }
+    for %named {
+        @newargs.push(.value);
+        @newargs.push(.key);
+    }
+    if @newargs.elems % 2 != 0 {
+        die "ZADD requires an equal number of values and scores";
+    }
+    return self!exec_command("ZADD", $key, |@newargs);
 }
 
 method zcard(Str $key) returns Int {
+    return self!exec_command("ZCARD", $key);
 }
 
-method zcount(Str $key, $min, $max) returns Int {
+# TODO support (1, -inf, +inf syntax, http://redis.io/commands/zcount
+method zcount(Str $key, Real $min, Real $max) returns Int {
+    return self!exec_command("ZCOUNT", $key, $min, $max);
 }
 
-method zincrby(Str $key, $increment, $member) {
+method zincrby(Str $key, Real $increment, $member) returns Real {
+    return self!exec_command("ZINCRBY", $key, $increment, $member);
 }
 
-method zinterstore() {
+method zinterstore(Str $destination, *@keys, :WEIGHTS(@weights)?, :AGGREGATE(@aggregate)?) returns Int {
+    my @args = Array.new;
+    if @weights.elems > 0 {
+        @args.push("WEIGHTS");
+        for @weights {
+            @args.push($_);
+        }
+    }
+    if @aggregate.elems > 0 {
+        @args.push("AGGREGATE");
+        for @aggregate {
+            @args.push($_);
+        }
+    }
+    return self!exec_command("ZINTERSTORE", $destination, @keys.elems, |@keys, |@args);
 }
 
-method zrange(Str $key, $start, $stop, :$WITHSCORES?) {
+# TODO return array of paires if WITHSCORES is set
+method zrange(Str $key, Int $start, Int $stop, :WITHSCORES($withscores)?) {
+    return self!exec_command("ZRANGE", $key, $start, $stop, $withscores.defined ?? "WITHSCORES" !! Nil);
 }
 
-method zrangebyscore(Str $key, $min, $max, :$WITHSCORES, :$offset, :$count) {
+# TODO return array of paires if WITHSCORES is set
+method zrangebyscore(Str $key, Real $min, Real $max, :WITHSCORES($withscores), Int :OFFSET($offset)?, Int :COUNT($count)?) returns List {
+    if ($offset.defined and !$count.defined) or (!$offset.defined and $count.defined) {
+        die "`offset` and `count` must both be specified.";
+    }
+    return self!exec_command("ZRANGEBYSCORE", $key, $min, $max,
+        $withscores.defined ?? "WITHSCORES" !! Nil,
+        ($offset.defined and $count.defined) ?? "LIMIT" !! Nil,
+        $offset.defined ?? $offset !! Nil,
+        $count.defined ?? $count !! Nil
+    );
 }
 
-method zrank(Str $key, $member) {
+method zrank(Str $key, $member) returns Any {
+    return self!exec_command("ZRANK", $key, $member);
 }
 
-method zrem(Str $key, *@members) {
+method zrem(Str $key, *@members) returns Int {
+    return self!exec_command("ZREM", $key, |@members);
 }
 
-method zremrangbyrank(Str $key, $start, $stop) {
+method zremrangbyrank(Str $key, Int $start, Int $stop) returns Int {
+    return self!exec_command("ZREMRANGEBYRANK", $key, $start, $stop);
 }
 
-method zremrangebyscore(Str $key, $min, $max) {
+method zremrangebyscore(Str $key, Real $min, Real $max) returns Int {
+    return self!exec_command("ZREMRANGEBYSCORE", $key, $min, $max);
 }
 
-method zrevrange(Str $key, $start, $stop, :$WITHSCORES) {
+# TODO return array of paires if WITHSCORES is set
+method zrevrange(Str $key, $start, $stop, :WITHSCORES($withscores)?) {
+    return self!exec_command("ZREVRANGE", $key, $start, $stop, $withscores.defined ?? "WITHSCORES" !! Nil);
 }
 
-method zrevrangebyscore(Str $key, $max, $min, :$WITHSCORES, :$offset, :$count) {
+# TODO return array of paires if WITHSCORES is set
+method zrevrangebyscore(Str $key, Real $min, Real $max, :WITHSCORES($withscores), Int :OFFSET($offset)?, Int :COUNT($count)?) returns List {
+    if ($offset.defined and !$count.defined) or (!$offset.defined and $count.defined) {
+        die "`offset` and `count` must both be specified.";
+    }
+    return self!exec_command("ZREVRANGEBYSCORE", $key, $min, $max,
+        $withscores.defined ?? "WITHSCORES" !! Nil,
+        ($offset.defined and $count.defined) ?? "LIMIT" !! Nil,
+        $offset.defined ?? $offset !! Nil,
+        $count.defined ?? $count !! Nil
+    );
 }
 
-method zrevrank(Str $key, $member) {
+method zrevrank(Str $key, $member) returns Any {
+    return self!exec_command("ZREVRANK", $key, $member);
 }
 
-method zscore(Str $key, $member) {
+method zscore(Str $key, $member) returns Real {
+    return self!exec_command("ZSCORE", $key, $member);
 }
 
-method zunionstore(Str $destination, $numkeys, *@keys) {
+method zunionstore(Str $destination, *@keys, :WEIGHTS(@weights)?, :AGGREGATE(@aggregate)?) returns Int {
+    my @args = Array.new;
+    if @weights.elems > 0 {
+        @args.push("WEIGHTS");
+        for @weights {
+            @args.push($_);
+        }
+    }
+    if @aggregate.elems > 0 {
+        @args.push("AGGREGATE");
+        for @aggregate {
+            @args.push($_);
+        }
+    }
+    return self!exec_command("ZUNIONSTORE", $destination, @keys.elems, |@keys, |@args);
 }
 
 ###### ! Commands/SortedSets #######
