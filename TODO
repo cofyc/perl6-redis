@@ -1,3 +1,2 @@
 * complete method signatures
 * support timeout options
-* multi-commands callback, such as SCRIPT LOAD, SCRIPT FLUSH, let exec_command to split first command

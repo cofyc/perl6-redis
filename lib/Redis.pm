@@ -34,7 +34,7 @@ my &buf_to_float_cb = { $_.decode("ASCII").Real };
 
 my %command_callbacks = Hash.new;
 %command_callbacks{"PING"} = { $_ eq "PONG" };
-for "AUTH,QUIT,SET,MSET,PSETEX,SETEX,MIGRATE,RENAME,RENAMENX,RESTORE,HMSET,SELECT,LSET,LTRIM,FLUSHALL,DISCARD,MULTI,WATCH,UNWATCH,SCRIPT FLUSH,SCRIPT KILL".split(",") -> $c {
+for "AUTH,QUIT,SET,MSET,PSETEX,SETEX,MIGRATE,RENAME,RENAMENX,RESTORE,HMSET,SELECT,LSET,LTRIM,FLUSHALL,FLUSHDB,DISCARD,MULTI,WATCH,UNWATCH,SCRIPT FLUSH,SCRIPT KILL".split(",") -> $c {
     %command_callbacks{$c} = &status_code_reply_cb;
 }
 for "EXISTS SETNX EXPIRE EXPIREAT MOVE PERSIST PEXPIRE PEXPIREAT HSET HEXISTS HSETNX SISMEMBER SMOVE".split(" ") -> $c {
@@ -53,6 +53,18 @@ for "INCRBYFLOAT HINCRBYFLOAT ZINCRBY ZSCORE".split(" ") -> $c {
         }
     }
     return %h;
+};
+%command_callbacks{"INFO"} = {
+    my @lines = $_.decode.split("\r\n");
+    my %info;
+    for @lines -> $l {
+        if $l.substr(0, 1) eq "#" {
+            next;
+        }
+        my ($key, $value) = $l.split(":");
+        %info{$key} = $value;
+    }
+    return %info;
 };
 
 has %!command_callbacks = %command_callbacks;
@@ -213,6 +225,14 @@ method select(Int $index) returns Bool {
 
 method flushall() returns Bool {
     return self!exec_command("FLUSHALL");
+}
+
+method flushdb() returns Bool {
+    return self!exec_command("FLUSHDB");
+}
+
+method info() returns Hash {
+    return self!exec_command("INFO");
 }
 
 ####### ! Commands/Server #######

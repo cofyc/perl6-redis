@@ -8,7 +8,10 @@ use Test::SpawnRedisServer;
 my $r = Redis.new();
 $r.connect;
 
-plan 1;
+plan 3;
 
-# flushall
 is_deeply $r.flushall(), True;
+
+is_deeply $r.flushdb(), True;
+
+ok $r.info.WHAT === Hash;
