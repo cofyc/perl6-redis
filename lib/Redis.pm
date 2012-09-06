@@ -87,10 +87,12 @@ method new(Str $server?, Str :$encoding?, Bool :$decode_response?) {
     if $decode_response.defined {
         %config<decode_response> = $decode_response;
     }
-    return self.bless(*, |%config);
+    my $obj = self.bless(*, |%config);
+    $obj.reconnect;
+    return $obj;
 }
 
-method connect {
+method reconnect {
     if $.sock.defined {
         die "Sorry, connecting via unix sock is currently unsupported!";
     } else {

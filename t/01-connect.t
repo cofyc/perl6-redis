@@ -6,9 +6,6 @@ use Test;
 
 plan 1;
 
-{
-    my $r = Redis.new('127.0.0.1:0');
-    dies_ok { $r.connect }
-}
+dies_ok { Redis.new('127.0.0.1:0') }
 
 # vim: ft=perl6
