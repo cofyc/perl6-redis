@@ -1,17 +1,13 @@
 # Redis - Perl6 binding for Redis
 
-Port of Redis from Perl 5.
-
 Synopsis
 ========
 
-    # create a Redis object
-    my $redis = Redis.new("192.168.1.12:6379");
-    # connect to server
-    $redis.connect();
-    # execute commands...
+    my $redis = Redis.new("127.0.0.1:6379");
     $redis.set("key", "value");
     say $redis.get("key");
+    say $redis.info();
+    $redis.quit();
 
 Build & Test & Install
 ======================
@@ -32,7 +28,12 @@ Unit Tests
 ==========
 
     Tested agaist Redis version 2.4.16 and 2.5.12.
-    
+
+Docs
+====
+
+    $ p6doc Redis
+
 References
 ==========
 

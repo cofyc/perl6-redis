@@ -1,19 +1,34 @@
 use v6;
 
-=begin Pod
+=begin pod
 
-=head1 Redis
+=TITLE Redis
 
-C<Redis> is a Perl6 binding for Redis database.
+    A Perl6 binding for Redis.
 
 =head1 Synopsis
 
-my $redis = Redis.new("192.168.1.12:6379");
-$redis.connect();
-$redis.set("key", "value");
-say $redis.get("key");
+    my $redis = Redis.new("127.0.0.1:6379");
+    $redis.set("key", "value");
+    say $redis.get("key");
+    say $redis.info();
+    $redis.quit();
 
-=end Pod
+=head1 Methods
+
+=head2 new
+
+    method new(Str $server?, Str :$encoding?, Bool :$decode_response?)
+
+Returns the redis object.
+
+=head2 exec_command
+
+    method exec_command(Str $command, *@args) returns Any
+
+Executes arbitrary command.
+    
+=end pod
 
 class Redis;
 
