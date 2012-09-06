@@ -1,19 +1,19 @@
 use v6;
 
-# =begin Pod
-#
-# =head1 Redis
-#
-# C<Redis> is a Perl6 binding for Redis database.
-#
-# =head1 Synopsis
-#
-#   my $redis = Redis.new("192.168.1.12:6379");
-#   $redis.connect();
-#   $redis.set("key", "value");
-#   say $redis.get("key");
-#
-# =end Pod
+=begin Pod
+
+=head1 Redis
+
+C<Redis> is a Perl6 binding for Redis database.
+
+=head1 Synopsis
+
+my $redis = Redis.new("192.168.1.12:6379");
+$redis.connect();
+$redis.set("key", "value");
+say $redis.get("key");
+
+=end Pod
 
 class Redis;
 

@@ -5,11 +5,15 @@ use Redis;
 use Test;
 use Test::SpawnRedisServer;
 
-my $r = Redis.new(decode_response => True);
+my $r = Redis.new("127.0.0.1:63790", decode_response => True);
 $r.connect;
 $r.flushall;
 
-plan 35;
+if $r.info<redis_version> gt "2.6" {
+    plan 35;
+} else {
+    plan 26;
+}
 
 # append
 $r.del("key");
@@ -17,15 +21,19 @@ is_deeply $r.append("key", "Hello"), 5;
 is_deeply $r.append("key", " World"), 11;
 
 # bitcount
-$r.set("key", "foobar");
-is_deeply $r.bitcount("key"), 26;
-is_deeply $r.bitcount("key", 0, 0), 4;
-is_deeply $r.bitcount("key", 1, 1), 6;
+if $r.info<redis_version> gt "2.6" {
+    $r.set("key", "foobar");
+    is_deeply $r.bitcount("key"), 26;
+    is_deeply $r.bitcount("key", 0, 0), 4;
+    is_deeply $r.bitcount("key", 1, 1), 6;
+}
 
 # bitop
-$r.set("key1", "foobar");
-$r.set("key2", "abcdefg");
-is_deeply $r.bitop("AND", "dest", "key1", "key2"), 7;
+if $r.info<redis_version> gt "2.6" {
+    $r.set("key1", "foobar");
+    $r.set("key2", "abcdefg");
+    is_deeply $r.bitop("AND", "dest", "key1", "key2"), 7;
+}
 
 # incr & decr & decrby & incrby
 $r.set("key2", 100);
@@ -48,10 +56,12 @@ is_deeply $r.getset("mycounter", 0), "1";
 is_deeply $r.get("mycounter"), "0";
 
 # incrbyfloat
-$r.set("mykey", 10.50);
-is_deeply $r.incrbyfloat("mykey", 0.1), 10.6;
-$r.set("mykey", 5.0e3);
-is_deeply $r.incrbyfloat("mykey", 2.0e2), 5200;
+if $r.info<redis_version> gt "2.6" {
+    $r.set("mykey", 10.50);
+    is_deeply $r.incrbyfloat("mykey", 0.1), 10.6;
+    $r.set("mykey", 5.0e3);
+    is_deeply $r.incrbyfloat("mykey", 2.0e2), 5200;
+}
 
 # set & get
 is_deeply $r.set("key", "value"), True;
@@ -67,10 +77,12 @@ is_deeply $r.mget("key", "key2"), ["value", "value2"];
 is_deeply $r.msetnx("key", "value", key2 => "value2"), 0;
 
 # psetex
-is_deeply $r.psetex("key", 100, "value"), True;
-is_deeply $r.get("key"), "value";
-sleep(0.1);
-is_deeply $r.get("key"), Nil;
+if $r.info<redis_version> gt "2.6" {
+    is_deeply $r.psetex("key", 100, "value"), True;
+    is_deeply $r.get("key"), "value";
+    sleep(0.1);
+    is_deeply $r.get("key"), Nil;
+}
 
 # setbit
 $r.del("mykey");

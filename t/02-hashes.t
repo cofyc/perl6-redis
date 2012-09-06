@@ -3,13 +3,16 @@ use v6;
 BEGIN { @*INC.push('t', 'lib') };
 use Redis;
 use Test;
-use Test::SpawnRedisServer;
 
-my $r = Redis.new(decode_response => True);
+my $r = Redis.new("127.0.0.1:63790", decode_response => True);
 $r.connect;
 $r.flushall;
 
-plan 13;
+if $r.info<redis_version> gt "2.6" {
+    plan 13;
+} else {
+    plan 12;
+}
 
 # hset & hget & hmset & hmget & hsetnx
 $r.hdel("hash", "field1");
@@ -29,11 +32,14 @@ is_deeply $r.hgetall("hash"), {key2 => "value2", count => "1"};
 
 # hincrby & hincrbyfloat
 is_deeply $r.hincrby("hash", "count", 10), 11;
-is_deeply $r.hincrbyfloat("hash", "count", 10.1), 21.1;
+if $r.info<redis_version> gt "2.6" {
+    is_deeply $r.hincrbyfloat("hash", "count", 10.1), 21.1;
+}
 
 # hkeys & hlen & hvals
 is_deeply $r.hkeys("hash"), ["key2", "count"];
 is_deeply $r.hlen("hash"), 2;
-is_deeply $r.hvals("hash"), ["value2", "21.1"];
+$r.hset("hash", "count", 10);
+is_deeply $r.hvals("hash"), ["value2", "10"];
 
 # vim: ft=perl6

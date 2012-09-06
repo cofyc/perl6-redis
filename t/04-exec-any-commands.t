@@ -5,7 +5,7 @@ use Redis;
 use Test;
 use Test::SpawnRedisServer;
 
-my $r = Redis.new(decode_response => True);
+my $r = Redis.new("127.0.0.1:63790", decode_response => True);
 $r.connect;
 
 plan 1;

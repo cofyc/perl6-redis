@@ -29,6 +29,11 @@ Install with Panda
     $ panda install Redis
     or if you don't have Redis server installed
     $ panda install --notests Redis 
+
+Unit Tests
+==========
+
+    Tested agaist Redis version 2.4.16 and 2.5.12.
     
 References
 ==========

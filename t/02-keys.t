@@ -3,23 +3,29 @@ use v6;
 BEGIN { @*INC.push('t', 'lib') };
 use Redis;
 use Test;
-use Test::SpawnRedisServer;
 
-my $r = Redis.new(decode_response => True);
+my $r = Redis.new("127.0.0.1:63790", decode_response => True);
 $r.connect;
 $r.flushall;
 
-plan 21;
+
+if $r.info<redis_version> gt "2.6" {
+    plan 21;
+} else {
+    plan 14;
+}
 
 # del
 is_deeply $r.del("key", "key2", "does_not_exists"), 0;
 
 # dump & restore
-$r.set("key", "value");
-my $serialized = $r.dump("key");
-$r.del("newkey");
-is_deeply $r.restore("newkey", 100, $serialized), True;
-is_deeply $r.get("newkey"), "value";
+if $r.info<redis_version> gt "2.6" {
+    $r.set("key", "value");
+    my $serialized = $r.dump("key");
+    $r.del("newkey");
+    is_deeply $r.restore("newkey", 100, $serialized), True;
+    is_deeply $r.get("newkey"), "value";
+}
 
 # exists
 $r.set("key", "value");
@@ -27,15 +33,22 @@ is_deeply $r.exists("key"), True;
 is_deeply $r.exists("does_not_exists"), False;
 
 # expire & persist & pexpire & expireat & pexpireat & pttl & ttl
-is_deeply $r.expire("key", 100), True;
-ok $r.ttl("key") <= 100;
-ok $r.persist("key");
-is_deeply $r.ttl("key"), -1;
-is_deeply $r.pexpire("key", 100000), True;
-is_deeply $r.expireat("key", 100), True;
-is_deeply $r.ttl("key"), -1;
-is_deeply $r.pexpireat("key", 1), False;
-is_deeply $r.pttl("key"), -1;
+if $r.info<redis_version> gt "2.6" {
+    is_deeply $r.expire("key", 100), True;
+    ok $r.ttl("key") <= 100;
+    ok $r.persist("key");
+    is_deeply $r.ttl("key"), -1;
+    is_deeply $r.pexpire("key", 100000), True;
+    is_deeply $r.expireat("key", 100), True;
+    is_deeply $r.ttl("key"), -1;
+    is_deeply $r.pexpireat("key", 1), False;
+    is_deeply $r.pttl("key"), -1;
+} else {
+    is_deeply $r.expire("key", 100), True;
+    ok $r.ttl("key") <= 100;
+    ok $r.persist("key");
+    is_deeply $r.ttl("key"), -1;
+}
 
 # keys
 $r.set("pattern1", 1);
