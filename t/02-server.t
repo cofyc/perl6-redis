@@ -1,6 +1,6 @@
 use v6;
 
-BEGIN { @*INC.push('t/') };
+BEGIN { @*INC.push('t', 'lib') };
 use Redis;
 use Test;
 use Test::SpawnRedisServer;

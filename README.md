@@ -13,6 +13,23 @@ Synopsis
     $redis.set("key", "value");
     say $redis.get("key");
 
+Build & Test & Install
+======================
+    
+First, please get 'ufo' from <http://github.com/masak/ufo> , then run:
+
+    $ ufo
+    $ make
+    $ make test     # need Redis server installed
+    $ make install
+
+Install with Panda
+==================
+
+    $ panda install Redis
+    or if you don't have Redis server installed
+    $ panda install --notests Redis 
+    
 References
 ==========
 

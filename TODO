@@ -1,2 +1,3 @@
+* start Redis daemon automatically in unit testing
 * complete method signatures
 * support timeout options
