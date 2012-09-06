@@ -20,15 +20,13 @@ First, please get 'ufo' from <http://github.com/masak/ufo> , then run:
 
     $ ufo
     $ make
-    $ make test     # need Redis server installed
+    $ make test     # run `redis-erver t/redis.conf` in another terminal first
     $ make install
 
 Install with Panda
 ==================
 
-    $ panda install Redis
-    or if you don't have Redis server installed
-    $ panda install --notests Redis 
+    $ panda install --notests Redis # unit tests need Redis server
 
 Unit Tests
 ==========
