@@ -102,7 +102,7 @@ method new(Str $server?, Str :$encoding?, Bool :$decode_response?) {
     if $decode_response.defined {
         %config<decode_response> = $decode_response;
     }
-    my $obj = self.bless(*, |%config);
+    my $obj = self.bless(|%config);
     $obj.reconnect;
     return $obj;
 }
