@@ -187,11 +187,11 @@ method !read_response returns Any {
 }
 
 method !decode_response($response) {
-    if $response.WHAT === Buf[uint8] {
+    if $response.WHAT ~~ Buf[uint8] {
         return $response.decode(self.encoding);
-    } elsif $response.WHAT === Array {
+    } elsif $response.WHAT ~~ Array {
         return $response.map( { self!decode_response($_) } ).Array;
-    } elsif $response.WHAT === Hash {
+    } elsif $response.WHAT ~~ Hash {
         my %h = Hash.new;
         for $response.pairs {
             %h{.key} = self!decode_response(.value);
