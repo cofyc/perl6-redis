@@ -671,7 +671,7 @@ method zadd(Str $key, *@args, *%named) returns Int {
     my @newargs = Array.new;
     @args = @args.reverse;
     for @args {
-        if $_.WHAT === Pair {
+        if $_.WHAT ~~ Pair {
             @newargs.push(.value);
             @newargs.push(.key);
         } else {
