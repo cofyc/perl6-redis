@@ -27,7 +27,7 @@ Returns the redis object.
     method exec_command(Str $command, *@args) returns Any
 
 Executes arbitrary command.
-    
+
 =end pod
 
 unit class Redis;
@@ -147,12 +147,35 @@ method exec_command(Str $command, *@args) returns Any {
     return self!parse_response(self!read_response(), $command);
 }
 
+my sub find-first-line-end(Blob $input --> Int) {
+    my $i = 0;
+    my $input-bytes = $input.bytes;
+    while $i + 2 <= $input-bytes  {
+        if $input[$i] == 0x0d && $input[$i+1]==0x0a {
+            return $i;
+        }
+        $i++
+    }
+    return $input-bytes;
+}
+
+method !get-first-line() {
+    my $buf = $.conn.recv(:bin);
+    my $first-line-end = find-first-line-end($buf);
+    my $first-line = $buf.subbuf(0, $first-line-end);
+    my $remainder-length = $buf.bytes - ( $first-line-end + 2 );
+    my $remainder = $buf.subbuf($first-line-end + 2, $remainder-length);
+
+    return ( $first-line.decode, $remainder );
+
+}
+
 # Returns Str/Int/Buf/Array
 method !read_response returns Any {
-    my $first-line = $.conn.get;
+    my ($first-line, $remainder)  = self!get-first-line;
     my ($flag, $response) = $first-line.substr(0, 1), $first-line.substr(1);
     if $flag !eq any('+', '-', ':', '$', '*') {
-        die "Unknown response from redis!\n";
+        die "Unknown response from redis: { $first-line.encode.gist } \n";
     }
     if $flag eq '+' {
         # single line reply, pass
@@ -168,9 +191,14 @@ method !read_response returns Any {
         if $length eq -1 {
             return Nil;
         }
-        $response = $.conn.read($length + 2).subbuf(0, $length);
+        my $needed = $length - $remainder.bytes;
+        $response = $remainder;
+        if $needed > 0 {
+            $response.append: $.conn.read($needed + 2).subbuf(0, $needed);
+        }
+        $response = $response.subbuf(0, $length);
         if $response.bytes !eq $length {
-            die "Invalid response.";
+            die "Invalid response. Wanted $length got { $response.bytes }";
         }
     } elsif $flag eq '*' {
         # multi-bulk response
