@@ -752,8 +752,10 @@ method zinterstore(Str $destination, *@keys, :WEIGHTS(@weights)?, :AGGREGATE(@ag
 }
 
 # TODO return array of paires if WITHSCORES is set
-method zrange(Str $key, Int $start, Int $stop, :WITHSCORES($withscores)?) {
-    return self.exec_command("ZRANGE", $key, $start, $stop, $withscores.defined ?? "WITHSCORES" !! Nil);
+method zrange(Str $key, Int $start, Int $stop, :WITHSCORES($withscores)) {
+    my @args = $key, $start, $stop;
+    @args.append('WITHSCORES') if $withscores.defined;
+    return self.exec_command("ZRANGE", |@args);
 }
 
 # TODO return array of paires if WITHSCORES is set
@@ -761,12 +763,12 @@ method zrangebyscore(Str $key, Real $min, Real $max, :WITHSCORES($withscores), I
     if ($offset.defined and !$count.defined) or (!$offset.defined and $count.defined) {
         die "`offset` and `count` must both be specified.";
     }
-    return self.exec_command("ZRANGEBYSCORE", $key, $min, $max,
-        $withscores.defined ?? "WITHSCORES" !! Nil,
-        ($offset.defined and $count.defined) ?? "LIMIT" !! Nil,
-        $offset.defined ?? $offset !! Nil,
-        $count.defined ?? $count !! Nil
-    );
+    my @args = $key, $min, $max;
+    @args.append("WITHSCORES") if $withscores.defined;
+    @args.append("LIMIT") if ($offset.defined and $count.defined);
+    @args.append($offset) if $offset.defined;
+    @args.append($count) if $count.defined;
+    return self.exec_command("ZRANGEBYSCORE", |@args);
 }
 
 method zrank(Str $key, $member) returns Any {

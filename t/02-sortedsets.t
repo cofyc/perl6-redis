@@ -18,7 +18,7 @@ is-deeply $r.zcard("myzset"), 4;
 
 is-deeply $r.zcount("myzset", 2, 3), 2;
 
-is-deeply $r.zincrby("myzset", 1.1, "THREE"), 4.1;
+is-approx $r.zincrby("myzset", 1.1, "THREE"), 4.1;
 
 # zinterstore & zrange & zrangebyscore & zrevrange & zrevrangebyscore
 $r.zadd("zset1", "one" => 1, "two" => 2);
@@ -38,7 +38,7 @@ $r.flushall;
 $r.zadd("myzset", one=>1, two=>2, three=>3, four=>4);
 is-deeply $r.zrank("myzset", "one"), 0;
 is-deeply $r.zrevrank("myzset", "one"), 3;
-is-deeply $r.zrank("myzset", "other"), Nil;
+nok $r.zrank("myzset", "other").defined, "zrank with non-defined key";
 is-deeply $r.zrem("myzset", "other", "one"), 1;
 is-deeply $r.zremrangbyrank("myzset", 0, 1), 2;
 is-deeply $r.zremrangebyscore("myzset", 2, 3), 0;
