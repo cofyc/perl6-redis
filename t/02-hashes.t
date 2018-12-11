@@ -23,23 +23,23 @@ is-deeply $r.hmset("hash", "key", "value", key2 => "value2"), True, "hmset";
 is-deeply $r.hmget("hash", "key", "key2"), ["value", "value2"], "hmget";
 
 # hdel & hexists
-is-deeply $r.hdel("hash", "field1", "key"), 2;
-is-deeply $r.hexists("hash", "field1"), False;
+is-deeply $r.hdel("hash", "field1", "key"), 2, 'hdel';
+is-deeply $r.hexists("hash", "field1"), False, 'hexists';
 
 # hgetall
 $r.hset("hash", "count", 1);
-is-deeply $r.hgetall("hash"), {key2 => "value2", count => "1"};
+is-deeply $r.hgetall("hash"), {key2 => "value2", count => "1"}, 'hgetall';
 
 # hincrby & hincrbyfloat
-is-deeply $r.hincrby("hash", "count", 10), 11;
+is-deeply $r.hincrby("hash", "count", 10), 11, 'hincrby';
 if $r.info<redis_version> gt "2.6" {
-    is-deeply $r.hincrbyfloat("hash", "count", 10.1), 21.1;
+    is-deeply $r.hincrbyfloat("hash", "count", 10.1), 21.1, 'hincrbyfloat';
 }
 
 # hkeys & hlen & hvals
-is-deeply $r.hkeys("hash"), ["key2", "count"];
-is-deeply $r.hlen("hash"), 2;
+is-deeply $r.hkeys("hash"), ["key2", "count"], 'hkeys';
+is-deeply $r.hlen("hash"), 2, 'hlen';
 $r.hset("hash", "count", 10);
-is-deeply $r.hvals("hash"), ["value2", "10"];
+is-deeply $r.hvals("hash"), ["value2", "10"], 'hvals';
 
 # vim: ft=perl6

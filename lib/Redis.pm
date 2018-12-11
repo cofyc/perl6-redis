@@ -144,7 +144,8 @@ method !pack_command(*@args) returns Buf {
 method exec_command(Str $command, *@args) returns Any {
     @args.unshift($command.split(" "));
     $.conn.write(self!pack_command(|@args));
-    return self!parse_response(self!read_response(), $command);
+    my Buf $remainder = Buf.new;
+    return self!parse_response(self!read_response($remainder), $command);
 }
 
 my sub find-first-line-end(Blob $input --> Int) {
@@ -159,8 +160,10 @@ my sub find-first-line-end(Blob $input --> Int) {
     return $input-bytes;
 }
 
-method !get-first-line() {
-    my $buf = $.conn.recv(:bin);
+method !get-first-line(Blob $buf is copy) {
+    unless $buf.defined && $buf.bytes > 0 {
+        $buf = $.conn.recv(:bin);
+    }
     my $first-line-end = find-first-line-end($buf);
     my $first-line = $buf.subbuf(0, $first-line-end);
     my $remainder-length = $buf.bytes - ( $first-line-end + 2 );
@@ -171,8 +174,9 @@ method !get-first-line() {
 }
 
 # Returns Str/Int/Buf/Array
-method !read_response returns Any {
-    my ($first-line, $remainder)  = self!get-first-line;
+method !read_response(Blob $remainder is rw --> Any) {
+    my $first-line;
+    ($first-line, $remainder)  = self!get-first-line($remainder);
     my ($flag, $response) = $first-line.substr(0, 1), $first-line.substr(1);
     if $flag !eq any('+', '-', ':', '$', '*') {
         die "Unknown response from redis: { $first-line.encode.gist } \n";
@@ -196,6 +200,7 @@ method !read_response returns Any {
         if $needed > 0 {
             $response.append: $.conn.read($needed + 2).subbuf(0, $needed);
         }
+        $remainder = $response.subbuf($length + 2, *);
         $response = $response.subbuf(0, $length);
         if $response.bytes !eq $length {
             die "Invalid response. Wanted $length got { $response.bytes }";
@@ -208,7 +213,7 @@ method !read_response returns Any {
         }
         $response = [];
         for 1..$length {
-            $response.push(self!read_response());
+            $response.push(self!read_response($remainder));
         }
     }
     return $response;
