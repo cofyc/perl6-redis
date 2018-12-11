@@ -40,9 +40,9 @@ if $r.info<redis_version> gt "2.6" {
     is-deeply $r.ttl("key"), -1;
     is-deeply $r.pexpire("key", 100000), True;
     is-deeply $r.expireat("key", 100), True;
-    is-deeply $r.ttl("key"), -1;
+    is $r.ttl("key"), $r.info<redis_version> ge "2.8" ?? -2 !! -1;
     is-deeply $r.pexpireat("key", 1), False;
-    is-deeply $r.pttl("key"), -1;
+    is $r.pttl("key"), $r.info<redis_version> ge "2.8" ?? -2 !! -1;
 } else {
     is-deeply $r.expire("key", 100), True;
     ok $r.ttl("key") <= 100;
