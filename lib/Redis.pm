@@ -142,7 +142,7 @@ method !pack_command(*@args) returns Buf {
 }
 
 method exec_command(Str $command, *@args) returns Any {
-    @args.unshift($command.split(" "));
+    @args.prepend($command.split(" "));
     $.conn.write(self!pack_command(|@args));
     my Buf $remainder = Buf.new;
     return self!parse_response(self!read_response($remainder), $command);
