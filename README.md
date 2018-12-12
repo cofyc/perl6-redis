@@ -1,5 +1,7 @@
 # Redis - Perl6 binding for Redis
 
+[![Build Status](https://travis-ci.com/cofyc/perl6-redis.svg?branch=master)](https://travis-ci.com/cofyc/perl6-redis)
+
 Synopsis
 ========
 
